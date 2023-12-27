@@ -1,0 +1,8 @@
+**/node_modules
+**/.vscode-server
+bin
+scripts/remote-deploy.sh
+**/.vscode
+**/tgbot.db
+
+**/.*-local*
