@@ -1,4 +1,4 @@
-FROM ghcr.io/filbe/diploi-tgbot-template
+FROM ghcr.io/filbe/diploi-tgbot-template:main
 
 # Install application code
 WORKDIR /app
