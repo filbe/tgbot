@@ -2,7 +2,7 @@ import { Telegraf } from "telegraf";
 import { TG_CONF } from "./commands";
 import * as sqlite3 from "sqlite3";
 import { botCommand, messageEveryone } from "./util";
-import { cellFromDb, rowFromDb, saveToDb } from "./sqlite3Utils";
+import { rowFromDb, saveToDb } from "./sqlite3Utils";
 
 export const mandatoryCommands = (db: sqlite3.Database, bot: Telegraf) => [
   botCommand({

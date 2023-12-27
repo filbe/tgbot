@@ -6,3 +6,5 @@ COPY . .
 
 RUN npm install
 RUN npm run build
+
+RUN touch tgbot.db
