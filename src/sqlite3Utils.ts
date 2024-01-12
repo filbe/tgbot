@@ -1,35 +1,61 @@
-import * as sqlite3 from "sqlite3";
+import * as sqlite3 from 'sqlite3';
 
 export interface SqlData {
   [key: string]: string | number | boolean | object;
 }
 
 type DbWrapperResult =
-  | { status: "ok"; result: SqlData[] | null }
-  | { status: "error"; error: Error | any };
+  | { status: 'ok'; result: SqlData[] | null }
+  | { status: 'error'; error: Error | any };
+
+export const initDb = async () => {
+  const db: sqlite3.Database | undefined = new sqlite3.Database(
+    './tgbot.db',
+    sqlite3.OPEN_READWRITE,
+    (err) => {
+      if (err) {
+        console.error(err.message);
+      }
+    }
+  );
+
+  // create a User table for tracking who uses the Telegram Bot
+  const sqlStatements = `
+        /* tg bot user tables */
+        CREATE TABLE IF NOT EXISTS User (
+            userID INTEGER PRIMARY KEY,
+            chatID INTEGER,
+            username TEXT,
+            firstname TEXT,
+            isBot BOOLEAN,
+            createdDate TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )`;
+  await dbWrapper(db, sqlStatements);
+  return db;
+};
 
 export const dbWrapper = async (db: sqlite3.Database, sqlStatements: string) =>
   new Promise<DbWrapperResult>(async (_resolve) => {
     const resolve = (resolvant: DbWrapperResult) => {
-      if (resolvant.status !== "ok") {
+      if (resolvant.status !== 'ok') {
         console.log(resolvant);
       }
       _resolve(resolvant);
     };
     try {
       let lastResult: DbWrapperResult | undefined = undefined;
-      for (const sqlStatement of sqlStatements.split(";")) {
+      for (const sqlStatement of sqlStatements.split(';')) {
         if (!sqlStatement.trim()) continue;
         lastResult = await new Promise<DbWrapperResult>((resolveStatement) => {
           const isRunQuery = !![
-            "insert into",
-            "insert or",
-            "replace",
-            "create",
-            "alter",
-            "delete",
-            "drop",
-            "update",
+            'insert into',
+            'insert or',
+            'replace',
+            'create',
+            'alter',
+            'delete',
+            'drop',
+            'update',
           ].find(
             (sqlCommand) =>
               sqlStatement.toLowerCase().indexOf(sqlCommand) !== -1
@@ -37,33 +63,33 @@ export const dbWrapper = async (db: sqlite3.Database, sqlStatements: string) =>
 
           if (isRunQuery) {
             db.run(
-              sqlStatement + ";",
+              sqlStatement + ';',
               [],
               (err: Error | null, res: sqlite3.RunResult) => {
                 if (err) {
                   console.log(err);
-                  resolveStatement({ status: "error" as const, error: err });
+                  resolveStatement({ status: 'error' as const, error: err });
                 }
-                resolveStatement({ status: "ok" as const, result: null });
+                resolveStatement({ status: 'ok' as const, result: null });
               }
             );
           } else {
             db.all(
-              sqlStatement + ";",
+              sqlStatement + ';',
               [],
               (err: Error | null, res: SqlData[]) => {
                 if (err) {
                   console.log(err);
-                  resolveStatement({ status: "error" as const, error: err });
+                  resolveStatement({ status: 'error' as const, error: err });
                 }
-                resolveStatement({ status: "ok" as const, result: res });
+                resolveStatement({ status: 'ok' as const, result: res });
               }
             );
           }
         });
       }
 
-      resolve(lastResult || { status: "ok" as const, result: null });
+      resolve(lastResult || { status: 'ok' as const, result: null });
     } catch (e) {
       console.log(e);
     }
@@ -79,27 +105,27 @@ export const saveToDb = async (
     ? await cellFromDb(
         db,
         tablename,
-        "1",
+        '1',
         Object.entries(where)
           .map(([whereProp, value]) => {
-            let whereValueStr = "";
+            let whereValueStr = '';
             switch (typeof value) {
-              case "string":
+              case 'string':
                 whereValueStr = "'" + value + "'";
                 break;
-              case "boolean":
-                whereValueStr = value ? "true" : "false";
+              case 'boolean':
+                whereValueStr = value ? 'true' : 'false';
                 break;
-              case "object":
+              case 'object':
                 whereValueStr = `\'${JSON.stringify(value)}\'`;
                 break;
-              case "number":
+              case 'number':
                 whereValueStr = `${value}`;
                 break;
             }
-            return whereProp + " = " + whereValueStr;
+            return whereProp + ' = ' + whereValueStr;
           })
-          .join(" AND ")
+          .join(' AND ')
       )
     : false;
 
@@ -115,18 +141,18 @@ export const saveToDb = async (
           (row) =>
             `(${Object.values(row).map((value) => {
               switch (typeof value) {
-                case "string":
+                case 'string':
                   return `'${value}'`;
-                case "boolean":
-                  return value ? "true" : "false";
-                case "object":
+                case 'boolean':
+                  return value ? 'true' : 'false';
+                case 'object':
                   return `'${JSON.stringify(value)}'`;
-                case "number":
+                case 'number':
                   return value;
               }
             })})`
         )
-        .join(", ")})`
+        .join(', ')})`
     );
   } else {
     if (exists) {
@@ -134,50 +160,50 @@ export const saveToDb = async (
         db,
         `UPDATE ${tablename} SET ${Object.entries(data)
           .map(([whereProp, value]) => {
-            let whereValueStr = "";
+            let whereValueStr = '';
             switch (value) {
-              case "CURRENT_TIMESTAMP":
+              case 'CURRENT_TIMESTAMP':
                 whereValueStr = value;
                 return `${whereProp} = ${whereValueStr}`;
             }
 
             switch (typeof value) {
-              case "string":
+              case 'string':
                 whereValueStr = "'" + value + "'";
                 break;
-              case "boolean":
-                whereValueStr = value ? "true" : "false";
+              case 'boolean':
+                whereValueStr = value ? 'true' : 'false';
                 break;
-              case "object":
+              case 'object':
                 whereValueStr = "'" + JSON.stringify(value) + "'";
                 break;
-              case "number":
+              case 'number':
                 whereValueStr = value.toString();
                 break;
             }
 
             return `${whereProp} = ${whereValueStr}`;
           })
-          .join(", ")} WHERE ${Object.entries(where || {})
+          .join(', ')} WHERE ${Object.entries(where || {})
           .map(([whereProp, value]) => {
-            let whereValueStr = "";
+            let whereValueStr = '';
             switch (typeof value) {
-              case "string":
+              case 'string':
                 whereValueStr = "'" + value + "'";
                 break;
-              case "boolean":
-                whereValueStr = value ? "true" : "false";
+              case 'boolean':
+                whereValueStr = value ? 'true' : 'false';
                 break;
-              case "object":
+              case 'object':
                 whereValueStr = `'${JSON.stringify(value)}'`;
                 break;
-              case "number":
+              case 'number':
                 whereValueStr = `${value}`;
                 break;
             }
             return `${whereProp} = ${whereValueStr}`;
           })
-          .join(" AND ")}`
+          .join(' AND ')}`
       );
     }
     // only one element
@@ -187,13 +213,13 @@ export const saveToDb = async (
         data
       ).map((value) => {
         switch (typeof value) {
-          case "string":
+          case 'string':
             return `\'${value}\'`;
-          case "boolean":
-            return value ? "true" : "false";
-          case "object":
+          case 'boolean':
+            return value ? 'true' : 'false';
+          case 'object':
             return `\'${JSON.stringify(value)}\'`;
-          case "number":
+          case 'number':
             return `${value}`;
         }
       })})`
@@ -212,20 +238,20 @@ export const deleteFromDb = async (
     DELETE FROM ${tablename} WHERE ${Object.keys(query)[0]} = ${
       Object.values(query).map((value) => {
         switch (typeof value) {
-          case "string":
+          case 'string':
             return `\'${value}\'`;
-          case "boolean":
-            return value ? "true" : "false";
-          case "object":
+          case 'boolean':
+            return value ? 'true' : 'false';
+          case 'object':
             return `\'${JSON.stringify(value)}\'`;
-          case "number":
+          case 'number':
             return `${value}`;
         }
       })[0]
     }
   `
   );
-  if (r.status !== "ok") {
+  if (r.status !== 'ok') {
     return [];
   }
   return r.result;
@@ -244,22 +270,22 @@ export const rowsFromDb = async (
         ? `${Object.keys(query)[0]} = ${
             Object.values(query).map((value) => {
               switch (typeof value) {
-                case "string":
+                case 'string':
                   return `\'${value}\'`;
-                case "boolean":
-                  return value ? "true" : "false";
-                case "object":
+                case 'boolean':
+                  return value ? 'true' : 'false';
+                case 'object':
                   return `\'${JSON.stringify(value)}\'`;
-                case "number":
+                case 'number':
                   return `${value}`;
               }
             })[0]
           }`
-        : "true"
+        : 'true'
     }
   `
   );
-  if (r.status !== "ok") {
+  if (r.status !== 'ok') {
     return [];
   }
   return r.result;
@@ -283,34 +309,15 @@ export const cellFromDb = async (
   const r = await dbWrapper(
     db,
     `
-      SELECT ${columnName} FROM ${tablename} WHERE ${where ? where : "true"}
+      SELECT ${columnName} FROM ${tablename} WHERE ${where ? where : 'true'}
     `
   );
-  if (r.status !== "ok") {
+  if (r.status !== 'ok') {
     return undefined;
   }
 
-  if (!r.result || r.result.length === 0 || typeof columnName !== "string") {
+  if (!r.result || r.result.length === 0 || typeof columnName !== 'string') {
     return undefined;
   }
   return r.result[0][columnName];
-};
-
-export const colFromDb = async (
-  db: sqlite3.Database,
-  tablename: string,
-  columnName: string,
-  where?: string
-) => {
-  const r = await dbWrapper(
-    db,
-    `
-      SELECT * FROM ${tablename} WHERE ${where ? where : "true"}
-    `
-  );
-  if (r.status === "ok") {
-    return r.result ? r.result.map((res) => res[columnName]) : null;
-  } else {
-    return null;
-  }
 };

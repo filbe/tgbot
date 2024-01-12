@@ -1,7 +1,4 @@
 **/node_modules
-**/.vscode-server
-bin
 **/dist
-**/.vscode
 **/tgbot.db
 **/.*-local*
