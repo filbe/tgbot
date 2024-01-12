@@ -5,11 +5,11 @@
     "start": "if [ ${STAGE} = \"development\" ]; then npm run start-dev; else npm run start-prod; fi",
     "start-prod": "npm run build && node dist/index.js",
     "start-dev": "npm run dev",
-    "dev": "ts-node-dev src/app.ts",
+    "dev": "npm run ensure-db && ts-node-dev src/app.ts",
     "clean": "rm -rf dist",
     "build": "ncc build src/app.ts -o dist",
     "clean-build": "npm run clean && npm run build",
-    "create-db": "touch ./tgbot.db",
+    "ensure-db": "touch ./tgbot.db",
     "clean-db": "rm ./tgbot.db && npm run create-db"
   },
   "dependencies": {

@@ -89,109 +89,120 @@ export const initTelegramCommands = (db: sqlite3.Database, bot: Telegraf) => {
   // example how to integrate Telegram both with OpenAI API
 
   // let's create a basic chatbot that uses gpt 3.5
+  const hasOpenAIAPIKey = !!process.env.OPENAI_API_KEY;
 
-  const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY, // put this to your Diploi Deployment -> Options -> Environment variables
-  });
+  const openai = hasOpenAIAPIKey
+    ? new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY, // put this to your Diploi Deployment -> Options -> Environment variables
+      })
+    : null;
 
-  const chatHistory: { [key: number]: ChatCompletionMessageParam[] } = {};
+  if (openai) {
+    const chatHistory: { [key: number]: ChatCompletionMessageParam[] } = {};
 
-  bot.on(message('text'), async (ctx) => {
-    const { id } = ctx.from;
-    if (!chatHistory[id]) {
-      chatHistory[id] = [];
-    }
-    chatHistory[id].push({
-      role: 'user' as const,
-      content: ctx.message.text,
-    });
-    try {
-      const completion = await openai.chat.completions.create({
-        messages: [
-          {
-            role: 'system' as const,
-            content:
-              'I am a super intelligent AI assistant that runs inside Telegram bot',
-          },
-          ...chatHistory[id],
-        ],
-        model: 'gpt-3.5-turbo-1106',
-        response_format: { type: 'text' },
-        n: 1,
-        presence_penalty: 0.2,
-        stream: false,
-      });
-      const gptAnswer = completion.choices[0].message.content;
-
-      // Reply to the user with the answer
-      ctx.reply(`${gptAnswer}`);
-
-      // save the conversation history
-      chatHistory[id].push({
-        role: 'assistant' as const,
-        content: gptAnswer,
-      });
-    } catch (error) {
-      console.error(error);
-      ctx.reply('An error occurred while processing your request.');
-    }
-  });
-
-  bot.on(message('photo'), async (ctx) => {
-    const { id } = ctx.from;
-    try {
-      let imageDescriptions = [];
-      const photo = ctx.message.photo[ctx.message.photo.length - 1];
-      const file_id = photo.file_id;
-      const fileLink = await ctx.telegram.getFileLink(file_id);
-
-      const responseStream = await openai.beta.chat.completions.stream({
-        model: 'gpt-4-vision-preview',
-        frequency_penalty: 2.0,
-        n: 1,
-        max_tokens: 1000,
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: 'Tell me what do you see in this picture.',
-              },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: fileLink.href,
-                },
-              },
-            ],
-          },
-        ],
-      });
-
-      const imageDescriptionCompletion =
-        await responseStream.finalChatCompletion();
-      const imageDescription =
-        imageDescriptionCompletion.choices[0].message.content;
-
-      // Reply to the user with the analysis
+    bot.on(message('text'), async (ctx) => {
+      const { id } = ctx.from;
       if (!chatHistory[id]) {
         chatHistory[id] = [];
       }
       chatHistory[id].push({
-        role: 'system' as const,
-        content:
-          'User has provided a photo, and the photo contents description is here: ' +
-          imageDescription,
+        role: 'user' as const,
+        content: ctx.message.text,
       });
-      imageDescriptions.push(imageDescription);
+      try {
+        const completion = await openai.chat.completions.create({
+          messages: [
+            {
+              role: 'system' as const,
+              content:
+                'I am a super intelligent AI assistant that runs inside Telegram bot',
+            },
+            ...chatHistory[id],
+          ],
+          model: 'gpt-3.5-turbo-1106',
+          response_format: { type: 'text' },
+          n: 1,
+          presence_penalty: 0.2,
+          stream: false,
+        });
+        const gptAnswer = completion.choices[0].message.content;
 
-      ctx.reply(`${imageDescriptions.join('\n\n')}`);
-    } catch (error) {
-      console.error(error);
-      ctx.reply('An error occurred while processing your request.');
-    }
-  });
+        // Reply to the user with the answer
+        ctx.reply(`${gptAnswer}`);
+
+        // save the conversation history
+        chatHistory[id].push({
+          role: 'assistant' as const,
+          content: gptAnswer,
+        });
+      } catch (error) {
+        console.error(error);
+        ctx.reply('An error occurred while processing your request.');
+      }
+    });
+
+    bot.on(message('photo'), async (ctx) => {
+      const { id } = ctx.from;
+      try {
+        let imageDescriptions = [];
+        const photo = ctx.message.photo[ctx.message.photo.length - 1];
+        const file_id = photo.file_id;
+        const fileLink = await ctx.telegram.getFileLink(file_id);
+
+        const responseStream = await openai.beta.chat.completions.stream({
+          model: 'gpt-4-vision-preview',
+          frequency_penalty: 2.0,
+          n: 1,
+          max_tokens: 1000,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Tell me what do you see in this picture.',
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: fileLink.href,
+                  },
+                },
+              ],
+            },
+          ],
+        });
+
+        const imageDescriptionCompletion =
+          await responseStream.finalChatCompletion();
+        const imageDescription =
+          imageDescriptionCompletion.choices[0].message.content;
+
+        // Reply to the user with the analysis
+        if (!chatHistory[id]) {
+          chatHistory[id] = [];
+        }
+        chatHistory[id].push({
+          role: 'system' as const,
+          content:
+            'User has provided a photo, and the photo contents description is here: ' +
+            imageDescription,
+        });
+        imageDescriptions.push(imageDescription);
+
+        ctx.reply(`${imageDescriptions.join('\n\n')}`);
+      } catch (error) {
+        console.error(error);
+        ctx.reply('An error occurred while processing your request.');
+      }
+    });
+  } else {
+    bot.on(message('text'), async (ctx) => {
+      ctx.reply(
+        `I'm unable to answer as I'm a dummy bot. Do you have your OpenAI credentials configured in DIploi?`
+      );
+    });
+  }
 };
 
 export const commandHelp = (command: Command, onlyInfo?: boolean) => {
